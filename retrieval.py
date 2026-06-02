@@ -129,11 +129,13 @@ def index_corpus(client: weaviate.Client, corpus_path: str, embedder) -> int:
     # batch-embed the texts
     vectors = embedder.encode(
         texts,
-        batch_size=64
+        batch_size=64,
+        show_progress_bar=True
     )
 
     # ingest each row with vector + all 6 properties
     with client.batch as batch:
+        batch.configure(batch_size=100)
 
         for row, vec in zip(rows, vectors):
 
@@ -165,6 +167,7 @@ def bm25_search(client: weaviate.Client, query: str, k: int) -> list[str]:
         .get(CLASS_NAME, ["doc_id"])
         .with_bm25(query=query)
         .with_limit(k)
+        .with_bm25(query=query, properties=["title", "question_text", "answer_text"])
         .do()
     )
 
@@ -273,7 +276,7 @@ def evaluate_retriever(eval_path: str, search_fn: Callable, k_values=(5, 10)) ->
         hit5 = int(gold in results[:5])
         hit10 = int(gold in results[:10])
 
-        if gold in results:
+        if gold in results[:10]:
             rank = results.index(gold) + 1
             mrr = 1.0 / rank
         else:
